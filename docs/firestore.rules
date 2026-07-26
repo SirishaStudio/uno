@@ -1,0 +1,36 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwner(userId) {
+      return request.auth != null && request.auth.uid == userId;
+    }
+
+    function statsUnchanged() {
+      return request.resource.data.gamesPlayed == resource.data.gamesPlayed
+        && request.resource.data.gamesWon == resource.data.gamesWon
+        && request.resource.data.winPercentage == resource.data.winPercentage
+        && request.resource.data.totalScore == resource.data.totalScore
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.isGuest == resource.data.isGuest
+        && request.resource.data.createdAt == resource.data.createdAt;
+    }
+
+    match /users/{userId} {
+      allow read: if isOwner(userId);
+
+      allow create: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.gamesPlayed == 0
+        && request.resource.data.gamesWon == 0
+        && request.resource.data.winPercentage == 0
+        && request.resource.data.totalScore == 0;
+
+      allow update: if isOwner(userId)
+        && request.resource.data.uid == userId
+        && statsUnchanged();
+
+      allow delete: if false;
+    }
+  }
+}

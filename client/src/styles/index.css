@@ -1,0 +1,27 @@
+@import 'tailwindcss';
+
+@theme {
+  --color-uno-bg: #0f0f14;
+  --color-uno-surface: #1a1a24;
+  --color-uno-border: #2a2a3a;
+  --color-uno-red: #e63946;
+  --color-uno-yellow: #f4a261;
+  --color-uno-green: #2a9d8f;
+  --color-uno-blue: #457b9d;
+  --color-uno-muted: #9ca3af;
+  --font-sans: 'Segoe UI', system-ui, -apple-system, sans-serif;
+}
+
+@layer base {
+  html {
+    @apply antialiased;
+  }
+
+  body {
+    @apply bg-uno-bg text-white font-sans min-h-dvh;
+  }
+
+  #root {
+    @apply min-h-dvh;
+  }
+}
