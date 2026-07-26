@@ -1,87 +1,101 @@
-import { useEffect, useId, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 import { Button } from '@/components/ui/Button';
-import { sanitizeDisplayName, validateDisplayName } from '@/utils/displayName';
+import { validateDisplayName } from '@/utils/displayName';
 
-interface GuestNameModalProps {
+interface Props {
   open: boolean;
   busy: boolean;
   onClose: () => void;
-  onSubmit: (displayName: string) => void;
+  onSubmit: (name: string) => void;
 }
 
-export function GuestNameModal({ open, busy, onClose, onSubmit }: GuestNameModalProps) {
-  const titleId = useId();
+export function GuestNameModal({ open, busy, onClose, onSubmit }: Props) {
   const [name, setName] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
-      setName('');
-      setError(null);
+      setName(''); setError(null);
+      setTimeout(() => inputRef.current?.focus(), 80);
     }
   }, [open]);
 
-  if (!open) return null;
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const validation = validateDisplayName(name);
-    if (validation) {
-      setError(validation);
-      return;
-    }
-    onSubmit(sanitizeDisplayName(name));
+    const err = validateDisplayName(name);
+    if (err) { setError(err); return; }
+    onSubmit(name.trim());
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/60 p-4 sm:items-center"
-      role="presentation"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
-        className="w-full max-w-md rounded-2xl border border-uno-border bg-uno-surface p-6 shadow-xl"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 id={titleId} className="text-lg font-semibold">
-          Choose a display name
-        </h2>
-        <p className="mt-1 text-sm text-uno-muted">Friends will see this name in the lobby.</p>
-        <form className="mt-4 flex flex-col gap-3" onSubmit={handleSubmit}>
-          <label className="flex flex-col gap-2 text-sm text-uno-muted">
-            Display name
-            <input
-              autoFocus
-              value={name}
-              maxLength={16}
-              disabled={busy}
-              onChange={(e) => {
-                setName(e.target.value);
-                setError(null);
-              }}
-              className="rounded-xl border border-uno-border bg-uno-bg px-4 py-3 text-base text-white placeholder:text-uno-muted/50 focus:border-uno-yellow focus:outline-none"
-              placeholder="e.g. Alex"
-            />
-          </label>
-          {error ? (
-            <p className="text-sm text-uno-red" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="flex gap-3 pt-2">
-            <Button type="button" variant="ghost" className="flex-1" disabled={busy} onClick={onClose}>
-              Cancel
-            </Button>
-            <Button type="submit" className="flex-1" disabled={busy}>
-              {busy ? 'Joining…' : 'Continue'}
-            </Button>
-          </div>
-        </form>
-      </div>
-    </div>
+    <AnimatePresence>
+      {open && (
+        <motion.div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+        >
+          {/* Backdrop */}
+          <motion.div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => !busy && onClose()}
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+          />
+
+          {/* Sheet */}
+          <motion.div
+            className="glass-strong relative z-10 w-full max-w-sm rounded-3xl p-7"
+            initial={{ opacity: 0, y: 40, scale: 0.95 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 40, scale: 0.95 }}
+            transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+          >
+            <h2 className="text-xl font-bold text-white mb-1">Choose your name</h2>
+            <p className="text-sm text-uno-muted mb-6">2–16 characters. You can change it later.</p>
+
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <div>
+                <input
+                  ref={inputRef}
+                  type="text"
+                  value={name}
+                  onChange={e => { setName(e.target.value); setError(null); }}
+                  placeholder="e.g. CoolPlayer99"
+                  maxLength={16}
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-white placeholder-uno-muted outline-none transition-all duration-200 focus:border-white/25 focus:bg-white/8 focus:ring-0"
+                  style={{ fontSize: 16 }}
+                  disabled={busy}
+                />
+                {error && (
+                  <motion.p
+                    initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }}
+                    className="mt-2 text-sm text-red-400"
+                  >
+                    {error}
+                  </motion.p>
+                )}
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className="flex-1"
+                  disabled={busy}
+                  onClick={onClose}
+                >
+                  Cancel
+                </Button>
+                <Button type="submit" className="flex-1" loading={busy} disabled={!name.trim()}>
+                  Let's play!
+                </Button>
+              </div>
+            </form>
+          </motion.div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   );
 }
