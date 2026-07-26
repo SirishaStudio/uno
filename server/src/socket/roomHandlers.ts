@@ -8,8 +8,8 @@ import {
   type RoomStatePayload,
 } from '@online-uno/shared';
 
-import { roomStore } from './RoomStore.js';
-import { socketRoomName, validatePlayerPayload } from './validation.js';
+import { roomStore } from '../rooms/RoomStore.js';
+import { socketRoomName, validatePlayerPayload } from '../rooms/validation.js';
 
 const CLIENT_PUBLIC_URL = process.env.CLIENT_PUBLIC_URL ?? 'http://localhost:5173';
 

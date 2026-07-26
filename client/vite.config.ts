@@ -36,11 +36,20 @@ export default defineConfig({
     }),
   ],
   server: {
-    port: 5173,
+    port: 5000,
+    host: '0.0.0.0',
+    allowedHosts: true,
     proxy: {
+      // Proxy /health and /socket.io to the backend so both work through
+      // Vite's single port on Replit (and in any reverse-proxy environment).
       '/health': {
         target: 'http://localhost:3001',
         changeOrigin: true,
+      },
+      '/socket.io': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+        ws: true,
       },
     },
   },
