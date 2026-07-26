@@ -22,43 +22,50 @@ online-uno/
 └── docs/     – Firebase setup, Firestore rules, milestone notes
 ```
 
-## Running on Replit
-
-The combined dev workflow starts both services:
+## First-time setup on Replit
 
 ```bash
-npm run dev
+npm install            # hydrates node_modules from package-lock.json
+cp client/.env.example client/.env
+cp server/.env.example server/.env
+# then fill in Firebase credentials — see below
 ```
 
-- **Client** → `http://localhost:5000` (Vite; proxies `/health` and `/socket.io` → server)
-- **Server** → `http://localhost:3001` (Express)
+Hit **Run** (or `npm run dev`). Both services start together:
 
-The Vite proxy means the browser only needs one origin in dev.
+- **Client** → port 5000 (Vite; proxies `/health` and `/socket.io` to the server)
+- **Server** → port 3001 (Express + Socket.IO)
+
+The Vite proxy means the browser only needs one origin in dev — leave `VITE_API_URL` and `VITE_SOCKET_URL` empty.
 
 ## Environment variables
 
-### Client (`client/.env`)
+### Firebase credentials (required for auth to work)
 
-| Variable                        | Required | Notes                          |
-|---------------------------------|----------|--------------------------------|
-| `VITE_API_URL`                  | No       | Leave empty — uses Vite proxy  |
-| `VITE_SOCKET_URL`               | No       | Leave empty — uses Vite proxy  |
-| `VITE_FIREBASE_API_KEY`         | Yes      | Firebase project settings      |
-| `VITE_FIREBASE_AUTH_DOMAIN`     | Yes      |                                |
-| `VITE_FIREBASE_PROJECT_ID`      | Yes      |                                |
-| `VITE_FIREBASE_STORAGE_BUCKET`  | Yes      |                                |
-| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Yes  |                                |
-| `VITE_FIREBASE_APP_ID`          | Yes      |                                |
+Add these as **Replit Secrets** (padlock icon → Secrets) rather than committing them:
 
-See `docs/firebase-setup.md` for how to get these values.
+| Secret name                           | Where to find it               |
+|---------------------------------------|--------------------------------|
+| `VITE_FIREBASE_API_KEY`               | Firebase Console → Project settings → General → Your apps |
+| `VITE_FIREBASE_AUTH_DOMAIN`           | same                           |
+| `VITE_FIREBASE_PROJECT_ID`            | same                           |
+| `VITE_FIREBASE_STORAGE_BUCKET`        | same                           |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID`   | same                           |
+| `VITE_FIREBASE_APP_ID`                | same                           |
 
-### Server (`server/.env`)
+See `docs/firebase-setup.md` for full Firebase project setup instructions.
+
+Also copy the values into `client/.env` locally so Vite can pick them up in dev.
+
+### Server env (`server/.env`)
 
 | Variable           | Default                    |
 |--------------------|----------------------------|
 | `PORT`             | 3001                       |
 | `CLIENT_ORIGIN`    | http://localhost:5000      |
 | `NODE_ENV`         | development                |
+
+These are already set in `.replit [userenv]` and require no extra action on Replit.
 
 ## Milestones
 
