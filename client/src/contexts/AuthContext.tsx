@@ -11,6 +11,7 @@ import type { PlayerProfileStats } from '@online-uno/shared';
 import { onAuthStateChanged, type User } from 'firebase/auth';
 
 import {
+  ensureUserProfile,
   fetchUserProfile,
   getFirebaseAuth,
   isFirebaseConfigured,
@@ -57,11 +58,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       try {
-        const doc = await fetchUserProfile(nextUser.uid);
+        // Try to fetch the existing profile first (cheap read).
+        // Fall back to ensureUserProfile so the doc is always created
+        // even if the user's Firestore record was lost or never written
+        // (e.g. the sign-in completed but the write failed).
+        let doc = await fetchUserProfile(nextUser.uid);
+        if (!doc) {
+          const displayName = nextUser.displayName ?? nextUser.email?.split('@')[0] ?? 'Player';
+          doc = await ensureUserProfile(nextUser, displayName);
+        }
         setProfile(doc);
       } catch {
         setProfile(null);
-        setAuthError('Could not load your profile.');
+        setAuthError('Could not load your profile. Please try signing in again.');
       } finally {
         setLoading(false);
       }

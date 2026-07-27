@@ -1,7 +1,9 @@
 import { io, type Socket } from 'socket.io-client';
 import { SOCKET_EVENTS } from '@online-uno/shared';
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL ?? 'http://localhost:3001';
+// Empty string means same-origin (works via Vite proxy in dev; direct in prod).
+// A non-empty string is used as-is (e.g. https://api.example.com).
+const SOCKET_URL = (import.meta.env.VITE_SOCKET_URL as string) ?? '';
 
 let socket: Socket | null = null;
 

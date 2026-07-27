@@ -213,9 +213,12 @@ export default function GamePage() {
     if (!game || !isMyTurn) return false;
     if (game.mustPickColor) return false;
     if (game.pendingDraw > 0) return false;
-    // If we already drew, only that drawn card can be played
-    if (game.drawnCardId && card.id !== game.drawnCardId) return false;
-    if (!game.canPlayDrawnCard && game.drawnCardId === card.id) return true;
+    // If we drew this turn, only the drawn card is eligible — and only if
+    // the server says it can be played (canPlayDrawnCard).
+    if (game.drawnCardId) {
+      if (card.id !== game.drawnCardId) return false;   // not the drawn card
+      if (!game.canPlayDrawnCard) return false;          // drawn card doesn't match
+    }
     // Match color or value, or is wild
     if (card.color === 'wild') return true;
     const top = game.topDiscard;
@@ -298,6 +301,16 @@ export default function GamePage() {
   const myHand = game?.myHand ?? [];
   const currentPlayerName = game?.players.find(p => p.id === game.currentPlayerId)?.displayName ?? '';
 
+  // If we have no game state after a reasonable wait (e.g. page refresh),
+  // redirect home instead of spinning forever.
+  useEffect(() => {
+    if (game) return;
+    const t = setTimeout(() => {
+      navigate(ROUTES.home, { replace: true });
+    }, 8000);
+    return () => clearTimeout(t);
+  }, [game, navigate]);
+
   if (!game) {
     return (
       <div className="flex min-h-dvh items-center justify-center" style={{ background: '#0a0a0f' }}>
@@ -306,6 +319,7 @@ export default function GamePage() {
           <div className="h-1 w-32 mx-auto rounded-full bg-white/10 overflow-hidden">
             <motion.div className="h-full bg-uno-red rounded-full" animate={{ x: ['-100%', '100%'] }} transition={{ duration: 1, repeat: Infinity }} />
           </div>
+          <p className="text-[10px] text-uno-muted/50 mt-4">Taking too long? You'll be redirected home.</p>
         </div>
       </div>
     );

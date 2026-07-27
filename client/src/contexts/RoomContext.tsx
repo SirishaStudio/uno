@@ -135,17 +135,38 @@ export function RoomProvider({ children }: { children: ReactNode }) {
   const createRoom = useCallback(async () => {
     const p = requireProfile();
     connectGameSocket();
-    const ack = await emitAck<Ack>(SOCKET_EVENTS.ROOM_CREATE, playerPayload(p));
-    if (!ack.ok) throw new Error(ack.error ?? 'Create failed');
+    const socket = getGameSocket();
+
+    // Add the ROOM_STATE listener BEFORE emitting so we never miss the event.
+    // (Server emits ROOM_STATE → then sends the ack, so the event can arrive
+    //  before the ack callback fires on the client.)
     return new Promise<RoomStatePayload>((resolve, reject) => {
-      const socket = getGameSocket();
-      const timeout = window.setTimeout(() => reject(new Error('Room state timeout')), 5000);
+      const timeout = window.setTimeout(() => {
+        socket.off(SOCKET_EVENTS.ROOM_STATE, handler);
+        reject(new Error('Room state timeout'));
+      }, 8000);
+
       const handler = (state: RoomStatePayload) => {
         window.clearTimeout(timeout);
         socket.off(SOCKET_EVENTS.ROOM_STATE, handler);
         resolve(state);
       };
+
       socket.on(SOCKET_EVENTS.ROOM_STATE, handler);
+
+      emitAck<Ack>(SOCKET_EVENTS.ROOM_CREATE, playerPayload(p))
+        .then((ack) => {
+          if (!ack.ok) {
+            window.clearTimeout(timeout);
+            socket.off(SOCKET_EVENTS.ROOM_STATE, handler);
+            reject(new Error(ack.error ?? 'Create failed'));
+          }
+        })
+        .catch((err: unknown) => {
+          window.clearTimeout(timeout);
+          socket.off(SOCKET_EVENTS.ROOM_STATE, handler);
+          reject(err instanceof Error ? err : new Error('Create failed'));
+        });
     });
   }, [requireProfile]);
 
@@ -154,20 +175,36 @@ export function RoomProvider({ children }: { children: ReactNode }) {
       const p = requireProfile();
       connectGameSocket();
       const normalized = code.trim().toUpperCase();
-      const ack = await emitAck<Ack>(SOCKET_EVENTS.ROOM_JOIN, {
-        ...playerPayload(p),
-        code: normalized,
-      });
-      if (!ack.ok) throw new Error(ack.error ?? 'Join failed');
+      const socket = getGameSocket();
+
+      // Same fix: register listener before emitting to avoid race condition.
       return new Promise<RoomStatePayload>((resolve, reject) => {
-        const socket = getGameSocket();
-        const timeout = window.setTimeout(() => reject(new Error('Room state timeout')), 5000);
+        const timeout = window.setTimeout(() => {
+          socket.off(SOCKET_EVENTS.ROOM_STATE, handler);
+          reject(new Error('Room state timeout'));
+        }, 8000);
+
         const handler = (state: RoomStatePayload) => {
           window.clearTimeout(timeout);
           socket.off(SOCKET_EVENTS.ROOM_STATE, handler);
           resolve(state);
         };
+
         socket.on(SOCKET_EVENTS.ROOM_STATE, handler);
+
+        emitAck<Ack>(SOCKET_EVENTS.ROOM_JOIN, { ...playerPayload(p), code: normalized })
+          .then((ack) => {
+            if (!ack.ok) {
+              window.clearTimeout(timeout);
+              socket.off(SOCKET_EVENTS.ROOM_STATE, handler);
+              reject(new Error(ack.error ?? 'Join failed'));
+            }
+          })
+          .catch((err: unknown) => {
+            window.clearTimeout(timeout);
+            socket.off(SOCKET_EVENTS.ROOM_STATE, handler);
+            reject(err instanceof Error ? err : new Error('Join failed'));
+          });
       });
     },
     [requireProfile],

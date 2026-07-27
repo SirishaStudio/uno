@@ -1,8 +1,26 @@
 import path from 'node:path';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
-import { defineConfig } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
+
+/**
+ * Force a full-page reload (instead of partial HMR) when the shared package
+ * dist changes. Without this, Vite hot-reloads RoomContext / GameContext and
+ * creates NEW context objects while old consumers still hold references to the
+ * old ones — causing "must be used within Provider" crashes in dev.
+ */
+function fullReloadOnShared(): Plugin {
+  return {
+    name: 'full-reload-on-shared',
+    handleHotUpdate({ file, server }) {
+      if (file.includes('/shared/dist/') || file.includes('\\shared\\dist\\')) {
+        server.ws.send({ type: 'full-reload' });
+        return [];
+      }
+    },
+  };
+}
 
 export default defineConfig({
   resolve: {
@@ -13,6 +31,7 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    fullReloadOnShared(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
