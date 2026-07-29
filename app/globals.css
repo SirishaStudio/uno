@@ -1,0 +1,86 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+}
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(62, 123, 250, 0.08), transparent 60%),
+    radial-gradient(ellipse 70% 50% at 90% 110%, rgba(229, 72, 77, 0.06), transparent 60%),
+    #0A0B0C;
+  min-height: 100dvh;
+}
+
+::selection {
+  background: #F0B429;
+  color: #0A0B0C;
+}
+
+.uno-card {
+  position: relative;
+  border-radius: 10px;
+  background: #161819;
+  border: 1px solid #2A2D30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-display);
+  font-weight: 700;
+  user-select: none;
+  overflow: hidden;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 6px 18px rgba(0,0,0,0.45);
+}
+
+.uno-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 5px;
+}
+
+.uno-card[data-color="red"]::before { background: #E5484D; }
+.uno-card[data-color="yellow"]::before { background: #F0B429; }
+.uno-card[data-color="green"]::before { background: #2FB170; }
+.uno-card[data-color="blue"]::before { background: #3E7BFA; }
+.uno-card[data-color="wild"]::before {
+  background: linear-gradient(90deg, #E5484D, #F0B429, #2FB170, #3E7BFA);
+}
+
+.uno-card[data-color="red"] { box-shadow: 0 0 0 1px rgba(229,72,77,0.35), 0 6px 18px rgba(0,0,0,0.45); }
+.uno-card[data-color="yellow"] { box-shadow: 0 0 0 1px rgba(240,180,41,0.35), 0 6px 18px rgba(0,0,0,0.45); }
+.uno-card[data-color="green"] { box-shadow: 0 0 0 1px rgba(47,177,112,0.35), 0 6px 18px rgba(0,0,0,0.45); }
+.uno-card[data-color="blue"] { box-shadow: 0 0 0 1px rgba(62,123,250,0.35), 0 6px 18px rgba(0,0,0,0.45); }
+
+.uno-card-back {
+  background:
+    repeating-linear-gradient(135deg, #161819 0 6px, #1B1D1F 6px 12px);
+  border: 1px solid #2A2D30;
+  border-radius: 10px;
+}
+
+.pack-stack {
+  position: relative;
+}
+.pack-stack .layer {
+  position: absolute;
+  inset: 0;
+  border-radius: 10px;
+}
+
+.scrollbar-none::-webkit-scrollbar { display: none; }
+.scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

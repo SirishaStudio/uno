@@ -1,90 +1,108 @@
-# Online UNO
+# UNO — no login, just play
 
-Production-quality online multiplayer UNO — React + Vite PWA frontend, Express + Socket.IO backend, Firebase Authentication, Firestore player profiles.
+Real-time multiplayer UNO. Enter a name, share a 5-character room code, play. No accounts, no lag.
 
-## Features
+## Why two moving parts
 
-- **Full official UNO rules** — Draw Two, Skip, Reverse, Wild, Wild Draw Four, colour picker, UNO penalty, stacking, turn timer
-- **Server-authoritative** — all game logic runs on the server; anti-cheat built in
-- **Real-time multiplayer** — Socket.IO with reconnect support and automatic host migration
-- **Room system** — create/join with a 4-digit code, invite link, configurable settings
-- **Authentication** — Google login + guest (anonymous) via Firebase Auth
-- **Player profiles** — Firestore `users/{uid}` with game stats
-- **PWA** — installable, service worker, offline splash
-- **Responsive** — mobile-first, landscape gameplay optimised
+Vercel's serverless functions don't hold long-lived connections, so a plain
+WebSocket server can't live there. This project splits cleanly:
 
-## Stack
+- **Next.js (App Router)** — the UI. Deploys to Vercel with zero config.
+- **PartyKit** — the realtime room server. One PartyKit "room" = one game
+  room. It holds the authoritative game state (deck, hands, turn order) in
+  memory and pushes updates to every connected player over WebSockets.
+  PartyKit deploys independently (to Cloudflare's edge) with one command and
+  has a generous free tier — perfect for a hackathon.
 
-| Package | Role |
-|---------|------|
-| `client/` | React 19 + Vite + Tailwind + Framer Motion PWA |
-| `server/` | Express + Socket.IO authoritative backend |
-| `shared/` | TypeScript types and game constants |
+The browser only ever sees its own hand; everyone else's card counts are
+public but their actual cards never leave the server. That's what makes
+"draw pile" and "opponent's hand" trustworthy instead of just client state.
 
-## Quick start
+## Project layout
+
+```
+app/                 Next.js pages (landing, /room/[code])
+components/          UI: Card, Hand, DrawPile, DirectionIndicator, etc.
+lib/
+  types.ts           Shared types + the client<->server message protocol
+  deck.ts            Deck construction (normal + tunable wild mode), shuffle
+  rules.ts           The single "can this card be played" rule (client + server)
+  gameEngine.ts       Authoritative game state machine (turns, draws, scoring)
+  useUnoRoom.ts       Client hook: connects, sends actions, receives state/hand
+  sound.ts            Synthesized sound effects via Web Audio (no audio files)
+party/
+  server.ts           PartyKit server — wraps gameEngine.ts per room
+partykit.json         PartyKit project config
+```
+
+Game rules live in one place (`lib/gameEngine.ts`) and the server is a thin
+adapter, so the logic is easy to unit test or tweak independently of the
+transport.
+
+## Features implemented
+
+- Room-code join flow, no login, name only
+- Host lobby controls: deck mode (Normal / Wild with tunable intensity),
+  win condition (Classic first-to-zero / Score race to a target), starting
+  hand size
+- Standard draw rules: draw pile, forced draw on +2 / Wild +4, draw-if-no-
+  playable-card with optional immediate play of the drawn card, reshuffle
+  from discard when the pile empties
+- UNO callout + catch-someone-out penalty
+- Turn direction indicator that flips on Reverse (acts as Skip in 2p)
+- Visible draw pile "pack" with remaining count
+- Live activity feed ("Alice's turn", "Bob drew a card", "Charlie was
+  skipped", reshuffles, wins)
+- Optimistic-feeling UI: instant card-throw animation + synthesized sound
+  effects (throw / wild / draw / turn / uno / win) on both the actor's and
+  everyone else's screen
+- Fully responsive black-card UI (mobile portrait/landscape + desktop)
+
+## Local development
 
 ```bash
 npm install
-cp client/.env.example client/.env   # fill in Firebase keys
-cp server/.env.example server/.env
+cp .env.example .env.local
 npm run dev
 ```
 
-- Client: `http://localhost:5000`
-- Server: `http://localhost:3001`
+This runs Next.js and `partykit dev` together (`concurrently`). Open
+`http://localhost:3000` in a couple of browser tabs to test multiplayer
+locally.
 
-## Scripts
+## Deploying
 
-| Command | Description |
-|---------|-------------|
-| `npm run dev` | Shared watch + Vite dev + server dev |
-| `npm run build` | Production build (shared → client → server) |
-| `npm run lint` | ESLint client + server |
-| `npm run format` | Prettier write |
+**1. Deploy the PartyKit server** (from the project root):
 
-## Deployment
-
-See **[`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** for full Vercel + Render instructions and environment variable reference.
-
-**Short version:**
-- Client → Vercel (root: `client/`, build: `npm run build`, output: `dist`)
-- Server → Render (Node 20, build + start commands in deployment guide)
-- Firebase credentials needed for both; Vercel domain must be added to Firebase Authorized Domains
-
-## Environment variables
-
-### Client (`client/.env`)
-
-```
-VITE_API_URL=http://localhost:3001
-VITE_SOCKET_URL=http://localhost:3001
-VITE_FIREBASE_API_KEY=
-VITE_FIREBASE_AUTH_DOMAIN=
-VITE_FIREBASE_PROJECT_ID=
-VITE_FIREBASE_STORAGE_BUCKET=
-VITE_FIREBASE_MESSAGING_SENDER_ID=
-VITE_FIREBASE_APP_ID=
+```bash
+npx partykit deploy
 ```
 
-### Server (`server/.env`)
+This prints a URL like `uno-web-app.<your-partykit-username>.partykit.dev`.
+Copy the host (no `https://`).
 
-```
-PORT=3001
-CLIENT_ORIGIN=http://localhost:5000
-CLIENT_PUBLIC_URL=http://localhost:5000
-NODE_ENV=development
-```
+**2. Deploy the frontend to Vercel:**
 
-## Milestones completed
+- Push this repo to GitHub and import it in Vercel, or run `npx vercel`.
+- In Vercel's Project Settings → Environment Variables, add:
+  - `NEXT_PUBLIC_PARTYKIT_HOST` = the host from step 1
+- Deploy. That's it — no server config, no custom Vercel functions needed.
 
-| # | Feature |
-|---|---------|
-| M1 | Monorepo, Vite/React/Tailwind, Express + Socket.IO, shared types, PWA |
-| M2 | Firebase Auth — Google login, guest login, Firestore user profiles |
-| M3 | Room system — create/join, invite link, lobby, ready state, host migration, reconnect, kick, settings |
-| M4 | Authoritative UNO engine — full official rules, scoring, round/match management |
-| M5 | Socket integration — server-validated game state, real-time sync, game UI |
+Redeploy the PartyKit server any time `party/server.ts` or `lib/` game-logic
+files change; redeploy Vercel any time the UI changes.
 
-## License
+## Notes on scope / trade-offs
 
-Private — all rights reserved.
+- Room state lives in the PartyKit room's memory for the session. That's
+  fine for a hackathon match; for durability across long idle periods you'd
+  persist `RoomState` to `room.storage` on change and rehydrate in the
+  constructor — the engine is already a plain serializable-ish object, so
+  that's a small follow-up, not a rewrite.
+- Sound effects are synthesized in-browser (Web Audio oscillators) instead
+  of shipped audio files, so there's nothing to license or host — swap in
+  real `.mp3`/`.wav` files under `public/sfx/` and update `lib/sound.ts` if
+  you'd rather have sampled sound.
+- +2 / Wild +4 resolve immediately (classic rules) rather than stacking
+  chains — the brief asked for standard draw rules, and stacking is a
+  common house-rule variant you can add in `gameEngine.ts` if your group
+  plays that way.
