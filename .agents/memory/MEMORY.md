@@ -1,0 +1,3 @@
+- [HMR context split fix](hmr-context-split.md) — shared package recompile broke React contexts in dev; fixed with Vite full-reload plugin
+- [Room create/join race condition](room-race-condition.md) — server emits ROOM_STATE before ack; client must add listener before emitting
+- [isCardPlayable drawn-card logic](game-playability.md) — drawnCardId + canPlayDrawnCard guards must return false when canPlayDrawnCard is false
