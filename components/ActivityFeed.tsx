@@ -4,12 +4,14 @@ import { ActivityEvent } from "@/lib/types";
 
 export function ActivityFeed({ events }: { events: ActivityEvent[] }) {
   return (
-    <div className="h-full overflow-y-auto scrollbar-none space-y-1.5 pr-1">
+    <div className="h-full overflow-y-auto scrollbar-none space-y-2 pr-1">
       {events.length === 0 && <p className="text-xs text-white/30">Activity will show up here.</p>}
       {events.map((e, i) => (
         <div
           key={e.id}
-          className={`text-xs leading-snug ${i === 0 ? "text-white/85" : "text-white/40"} transition-colors`}
+          className={`text-xs leading-snug rounded-lg px-2.5 py-1.5 transition-colors ${
+            i === 0 ? "bg-white/[0.06] text-white/85" : "text-white/40"
+          }`}
         >
           {e.text}
         </div>

@@ -12,8 +12,8 @@ function label(card: CardType): string {
 const sizeMap = {
   sm: "w-11 h-16 text-lg",
   md: "w-16 h-24 text-2xl",
-  lg: "w-20 h-28 text-3xl",
-  xl: "w-24 h-36 text-4xl",
+  lg: "w-[4.5rem] h-[6.75rem] text-3xl",
+  xl: "w-24 h-36 text-4xl md:w-28 md:h-40 md:text-5xl",
 } as const;
 
 export function UnoCard({
@@ -31,22 +31,31 @@ export function UnoCard({
   selected?: boolean;
   className?: string;
 }) {
+  const interactive = !!onClick;
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={!onClick || disabled}
-      data-color={card.color}
-      className={`uno-card shrink-0 ${sizeMap[size]} ${
-        disabled ? "opacity-35 saturate-50" : onClick ? "active:scale-95 hover:-translate-y-1.5" : ""
-      } ${selected ? "-translate-y-3 ring-2 ring-white/70" : ""} transition-transform duration-150 ${className}`}
-      aria-label={`${card.color} ${label(card)}`}
-    >
-      <span className="pt-1 tracking-tight text-white/95">{label(card)}</span>
-    </button>
+    <div className={`card-scene shrink-0 ${sizeMap[size]} ${className}`}>
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={!interactive || disabled}
+        data-color={card.color}
+        className={`uno-card w-full h-full ${interactive ? "is-interactive" : ""} ${
+          selected ? "is-selected" : ""
+        } ${disabled ? "opacity-35 saturate-50" : ""}`}
+        aria-label={`${card.color} ${label(card)}`}
+      >
+        <span className="pt-1 tracking-tight text-white/95 [text-shadow:0_1px_2px_rgba(0,0,0,0.5)]">
+          {label(card)}
+        </span>
+      </button>
+    </div>
   );
 }
 
 export function CardBack({ size = "md", className = "" }: { size?: keyof typeof sizeMap; className?: string }) {
-  return <div className={`uno-card-back shrink-0 ${sizeMap[size]} ${className}`} />;
+  return (
+    <div className={`card-scene shrink-0 ${sizeMap[size]} ${className}`}>
+      <div className="uno-card-back w-full h-full" />
+    </div>
+  );
 }

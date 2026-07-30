@@ -91,7 +91,49 @@ Copy the host (no `https://`).
 Redeploy the PartyKit server any time `party/server.ts` or `lib/` game-logic
 files change; redeploy Vercel any time the UI changes.
 
-## Notes on scope / trade-offs
+## v2 — bug fixes + visual overhaul
+
+A first pass had a real bug and a flat UI. Fixed both:
+
+**Correctness fixes**
+- **Stuck draw bug**: the "already drew this turn" flag was stored per-player
+  and only cleared when *that player* played a card — so after a
+  draw-then-pass turn, it stayed stuck `true` forever and silently blocked
+  their next draw. It's now a single engine-level flag tied to whoever's
+  turn it currently is, cleared every time the turn advances.
+- **Turn order fragility**: turn order was an index into a *filtered* list of
+  connected players, which reshuffles size (and therefore meaning) whenever
+  someone disconnects/reconnects. Turn order is now an index into a fixed
+  seat list decided once per match; stepping just skips disconnected seats
+  without corrupting the mapping.
+- **"Could still play after a wild"**: this was a client-side race — the UI
+  didn't lock until the server's round-trip confirmed the turn had passed,
+  so a fast second tap could fire before that arrived. The client now
+  predicts the outcome of a play the instant you tap (see below), so the
+  turn visibly passes with zero round-trip delay.
+- Added a self-catch guard, safer reshuffle-from-discard, and a turn timer /
+  AFK auto-play so a stalled or disconnected player can't freeze the table.
+
+**True optimistic UI** (`lib/optimistic.ts`): playing a card now predicts the
+next turn/direction/discard/pile locally and applies it immediately; the
+server's next broadcast silently confirms or corrects it. This is what the
+brief asked for under "optimistic UI updates" and is also what fixes the
+double-play race above.
+
+**Visual overhaul**
+- Real 3D cards: `perspective` + `preserve-3d` + `translateZ` for hover lift
+  and a card-throw that arcs in with actual depth, not just a 2D slide.
+- A "table pit" arena backdrop, a spinning conic-gradient direction dial,
+  glass-panel player plaques with mini card-back stacks, tactile
+  press-down buttons (`.btn-tactile`) site-wide.
+- Redesigned landing page with a pointer-parallax 3D card fan hero.
+- A Settings menu with a **Reduced motion** mode for low-end/laggy devices
+  — flips a `data-motion="reduced"` attribute that globally swaps every 3D
+  transform/animation for a cheap fade, no per-component special-casing
+  needed. Auto-detects `prefers-reduced-motion` on first load too.
+- A visible turn-timer countdown ring/bar when the host enables one.
+
+
 
 - Room state lives in the PartyKit room's memory for the session. That's
   fine for a hackathon match; for durability across long idle periods you'd

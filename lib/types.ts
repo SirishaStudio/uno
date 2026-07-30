@@ -58,6 +58,8 @@ export interface PublicGameState {
   drawPileCount: number;
   activity: ActivityEvent[];
   pendingDrawCount: number; // stacked forced-draw amount owed by current player
+  hasDrawnThisTurn: boolean;
+  turnDeadline: number | null; // ms epoch; null when no turn timer is running
   lastRoundWinnerId: string | null;
   lastRoundPoints: number;
   matchWinnerId: string | null;

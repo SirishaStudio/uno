@@ -11,11 +11,9 @@ html, body {
 }
 
 body {
-  background:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(62, 123, 250, 0.08), transparent 60%),
-    radial-gradient(ellipse 70% 50% at 90% 110%, rgba(229, 72, 77, 0.06), transparent 60%),
-    #0A0B0C;
+  background: #07080A;
   min-height: 100dvh;
+  position: relative;
 }
 
 ::selection {
@@ -23,10 +21,66 @@ body {
   color: #0A0B0C;
 }
 
+/* ---------------------------------------------------------------------
+   Ambient aurora backdrop. Two slow-drifting soft-light blobs behind
+   everything, cheap to render (transform-only animation, no repaint).
+--------------------------------------------------------------------- */
+.aurora {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.aurora::before,
+.aurora::after {
+  content: "";
+  position: absolute;
+  width: 60vmax;
+  height: 60vmax;
+  border-radius: 50%;
+  filter: blur(90px);
+  opacity: 0.16;
+  will-change: transform;
+}
+.aurora::before {
+  top: -20vmax;
+  left: -10vmax;
+  background: radial-gradient(circle, #3E7BFA, transparent 65%);
+  animation: driftA 26s ease-in-out infinite alternate;
+}
+.aurora::after {
+  bottom: -25vmax;
+  right: -15vmax;
+  background: radial-gradient(circle, #E5484D, transparent 65%);
+  animation: driftB 32s ease-in-out infinite alternate;
+}
+@keyframes driftA {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(8vmax, 6vmax, 0) scale(1.15); }
+}
+@keyframes driftB {
+  0% { transform: translate3d(0, 0, 0) scale(1); }
+  100% { transform: translate3d(-6vmax, -8vmax, 0) scale(1.1); }
+}
+
+[data-motion="reduced"] .aurora::before,
+[data-motion="reduced"] .aurora::after {
+  animation: none;
+}
+
+/* ---------------------------------------------------------------------
+   Cards - real 3D. Each card lives inside a perspective wrapper so tilt/
+   throw transforms read as depth, not a flat CSS trick.
+--------------------------------------------------------------------- */
+.card-scene {
+  perspective: 900px;
+}
+
 .uno-card {
   position: relative;
   border-radius: 10px;
-  background: #161819;
+  background: linear-gradient(160deg, #1B1D1F 0%, #131517 65%, #0E0F10 100%);
   border: 1px solid #2A2D30;
   display: flex;
   align-items: center;
@@ -35,7 +89,12 @@ body {
   font-weight: 700;
   user-select: none;
   overflow: hidden;
-  box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 6px 18px rgba(0,0,0,0.45);
+  transform-style: preserve-3d;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.04) inset,
+    0 10px 24px -6px rgba(0,0,0,0.55),
+    0 2px 6px rgba(0,0,0,0.4);
+  transition: transform 160ms cubic-bezier(.2,.8,.2,1), box-shadow 160ms ease;
 }
 
 .uno-card::before {
@@ -43,6 +102,13 @@ body {
   position: absolute;
   inset: 0 0 auto 0;
   height: 5px;
+}
+.uno-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(115deg, rgba(255,255,255,0.10) 0%, transparent 30%, transparent 100%);
+  pointer-events: none;
 }
 
 .uno-card[data-color="red"]::before { background: #E5484D; }
@@ -53,29 +119,132 @@ body {
   background: linear-gradient(90deg, #E5484D, #F0B429, #2FB170, #3E7BFA);
 }
 
-.uno-card[data-color="red"] { box-shadow: 0 0 0 1px rgba(229,72,77,0.35), 0 6px 18px rgba(0,0,0,0.45); }
-.uno-card[data-color="yellow"] { box-shadow: 0 0 0 1px rgba(240,180,41,0.35), 0 6px 18px rgba(0,0,0,0.45); }
-.uno-card[data-color="green"] { box-shadow: 0 0 0 1px rgba(47,177,112,0.35), 0 6px 18px rgba(0,0,0,0.45); }
-.uno-card[data-color="blue"] { box-shadow: 0 0 0 1px rgba(62,123,250,0.35), 0 6px 18px rgba(0,0,0,0.45); }
+.uno-card[data-color="red"] { box-shadow: 0 0 0 1px rgba(229,72,77,0.4), 0 10px 24px -6px rgba(0,0,0,0.55); }
+.uno-card[data-color="yellow"] { box-shadow: 0 0 0 1px rgba(240,180,41,0.4), 0 10px 24px -6px rgba(0,0,0,0.55); }
+.uno-card[data-color="green"] { box-shadow: 0 0 0 1px rgba(47,177,112,0.4), 0 10px 24px -6px rgba(0,0,0,0.55); }
+.uno-card[data-color="blue"] { box-shadow: 0 0 0 1px rgba(62,123,250,0.4), 0 10px 24px -6px rgba(0,0,0,0.55); }
+
+.uno-card.is-interactive:not(:disabled):hover {
+  transform: translate3d(0, -10px, 20px) rotateX(8deg);
+}
+.uno-card.is-interactive:not(:disabled):active {
+  transform: translate3d(0, -2px, 6px) rotateX(3deg) scale(0.97);
+}
+.uno-card.is-selected {
+  transform: translate3d(0, -16px, 26px) rotateX(6deg);
+}
+
+[data-motion="reduced"] .uno-card {
+  transition: opacity 120ms linear;
+}
+[data-motion="reduced"] .uno-card.is-interactive:hover,
+[data-motion="reduced"] .uno-card.is-interactive:active,
+[data-motion="reduced"] .uno-card.is-selected {
+  transform: none;
+}
 
 .uno-card-back {
-  background:
-    repeating-linear-gradient(135deg, #161819 0 6px, #1B1D1F 6px 12px);
-  border: 1px solid #2A2D30;
+  position: relative;
   border-radius: 10px;
+  border: 1px solid #2A2D30;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(240,180,41,0.10), transparent 55%),
+    repeating-linear-gradient(135deg, #17181A 0 6px, #1D1F21 6px 12px);
+  box-shadow: 0 8px 18px -6px rgba(0,0,0,0.5);
 }
 
-.pack-stack {
-  position: relative;
-}
 .pack-stack .layer {
   position: absolute;
   inset: 0;
   border-radius: 10px;
 }
 
+/* throw: a played card arcs in from the player's seat toward the pile,
+   with real depth (translateZ) so it reads as flying, not sliding. */
+@keyframes cardThrowIn {
+  0% {
+    transform: translate3d(var(--fx, 0), var(--fy, -40px), -140px) rotate3d(0.3, 1, 0, 50deg) rotateZ(var(--fr, -8deg));
+    opacity: 0.2;
+  }
+  60% { opacity: 1; }
+  100% {
+    transform: translate3d(0, 0, 0) rotate3d(0, 0, 0, 0deg) rotateZ(0deg);
+    opacity: 1;
+  }
+}
+.animate-card-throw {
+  animation: cardThrowIn 420ms cubic-bezier(.16,.9,.2,1);
+}
+[data-motion="reduced"] .animate-card-throw {
+  animation: popIn 140ms ease-out;
+}
+
+@keyframes popIn {
+  0% { transform: scale(0.85); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.animate-popIn { animation: popIn 180ms ease-out; }
+
+@keyframes pulseRing {
+  0% { box-shadow: 0 0 0 0 rgba(240,180,41,0.55); }
+  100% { box-shadow: 0 0 0 14px rgba(240,180,41,0); }
+}
+.animate-pulseRing { animation: pulseRing 1.2s ease-out infinite; }
+[data-motion="reduced"] .animate-pulseRing { animation: none; box-shadow: 0 0 0 2px rgba(240,180,41,0.55); }
+
+/* ---------------------------------------------------------------------
+   Table arena - a soft radial "felt" pit with a rotating direction ring.
+--------------------------------------------------------------------- */
+.table-pit {
+  position: relative;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 50% 40%, rgba(255,255,255,0.045), transparent 60%),
+    radial-gradient(circle at 50% 50%, #101214, #0A0B0C 70%);
+  box-shadow:
+    inset 0 0 0 1px rgba(255,255,255,0.05),
+    inset 0 20px 60px rgba(0,0,0,0.55);
+}
+
+@keyframes ringSpin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.direction-ring {
+  animation: ringSpin 6s linear infinite;
+}
+.direction-ring.reverse {
+  animation-direction: reverse;
+}
+[data-motion="reduced"] .direction-ring {
+  animation: none;
+}
+
+/* buttons: tactile 3D press */
+.btn-tactile {
+  transition: transform 120ms ease, box-shadow 120ms ease, filter 120ms ease;
+  box-shadow: 0 4px 0 rgba(0,0,0,0.35), 0 8px 16px -6px rgba(0,0,0,0.5);
+}
+.btn-tactile:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 rgba(0,0,0,0.35), 0 4px 8px -4px rgba(0,0,0,0.5);
+}
+[data-motion="reduced"] .btn-tactile {
+  transition: opacity 120ms linear;
+  box-shadow: none;
+}
+[data-motion="reduced"] .btn-tactile:active {
+  transform: none;
+}
+
 .scrollbar-none::-webkit-scrollbar { display: none; }
 .scrollbar-none { -ms-overflow-style: none; scrollbar-width: none; }
+
+.glass-panel {
+  background: rgba(19, 21, 23, 0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+}
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {

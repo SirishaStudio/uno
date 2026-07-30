@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Space_Grotesk, Inter } from "next/font/google";
+import { MotionProvider } from "@/lib/motion";
 import "./globals.css";
 
 const display = Space_Grotesk({
@@ -31,7 +32,9 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" className={`${display.variable} ${body.variable}`}>
-      <body className="bg-ink text-white font-body antialiased overscroll-none">{children}</body>
+      <body className="bg-ink text-white font-body antialiased overscroll-none">
+        <MotionProvider>{children}</MotionProvider>
+      </body>
     </html>
   );
 }

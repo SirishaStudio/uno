@@ -10,8 +10,9 @@ import { ActivityFeed } from "@/components/ActivityFeed";
 import { PlayerList } from "@/components/PlayerList";
 import { Hand } from "@/components/Hand";
 import { HostSettingsPanel } from "@/components/HostSettingsPanel";
-import { CardColor } from "@/lib/types";
-import { isMuted, playSound, setMuted } from "@/lib/sound";
+import { SettingsMenu } from "@/components/SettingsMenu";
+import { CardColor, PublicGameState } from "@/lib/types";
+import { playSound } from "@/lib/sound";
 
 export default function RoomPage() {
   const params = useParams<{ code: string }>();
@@ -33,8 +34,9 @@ export default function RoomPage() {
 
   if (!name) {
     return (
-      <main className="min-h-dvh flex items-center justify-center px-6">
-        <div className="w-full max-w-xs text-center">
+      <main className="min-h-dvh flex items-center justify-center px-6 relative">
+        <div className="aurora" />
+        <div className="relative w-full max-w-xs text-center">
           <p className="text-white/40 text-xs uppercase tracking-wide mb-2">Room {roomCode}</p>
           <h1 className="font-display font-bold text-2xl mb-6">What's your name?</h1>
           <input
@@ -50,7 +52,7 @@ export default function RoomPage() {
               setName(nameInput.trim());
             }}
             disabled={!nameInput.trim()}
-            className="w-full bg-uno-yellow text-ink font-display font-bold py-3 rounded-xl disabled:opacity-30"
+            className="btn-tactile w-full bg-uno-yellow text-ink font-display font-bold py-3 rounded-xl disabled:opacity-30"
           >
             Join room
           </button>
@@ -64,24 +66,14 @@ export default function RoomPage() {
 
 function RoomInner({ roomCode, name }: { roomCode: string; name: string }) {
   const router = useRouter();
-  const { connected, state, hand, error, lastThrown, playerId, send } = useUnoRoom(roomCode, name);
+  const { connected, state, hand, error, lastThrown, playerId, actions } = useUnoRoom(roomCode, name);
   const [feedOpen, setFeedOpen] = useState(false);
-  const [muted, setMutedState] = useState(false);
   const [throwSeq, setThrowSeq] = useState(0);
-  const [hasDrawnThisTurn, setHasDrawnThisTurn] = useState(false);
   const prevWinner = useRef<string | null>(null);
-  const prevTurn = useRef<string | null>(null);
 
   useEffect(() => {
     if (lastThrown) setThrowSeq((n) => n + 1);
   }, [lastThrown]);
-
-  useEffect(() => {
-    if (state?.currentPlayerId !== prevTurn.current) {
-      setHasDrawnThisTurn(false);
-      prevTurn.current = state?.currentPlayerId ?? null;
-    }
-  }, [state?.currentPlayerId]);
 
   useEffect(() => {
     if (state?.matchWinnerId && state.matchWinnerId !== prevWinner.current) {
@@ -90,25 +82,20 @@ function RoomInner({ roomCode, name }: { roomCode: string; name: string }) {
     prevWinner.current = state?.matchWinnerId ?? null;
   }, [state?.matchWinnerId]);
 
-  function toggleMute() {
-    const next = !isMuted();
-    setMuted(next);
-    setMutedState(next);
-  }
-
   function copyCode() {
     navigator.clipboard?.writeText(roomCode);
   }
 
   function leave() {
-    send({ type: "leave" });
+    actions.leave();
     router.push("/");
   }
 
   if (!state) {
     return (
-      <main className="min-h-dvh flex items-center justify-center">
-        <p className="text-white/40 text-sm">{connected ? "Loading room..." : "Connecting..."}</p>
+      <main className="min-h-dvh flex items-center justify-center relative">
+        <div className="aurora" />
+        <p className="relative text-white/40 text-sm">{connected ? "Loading room..." : "Connecting..."}</p>
       </main>
     );
   }
@@ -118,8 +105,10 @@ function RoomInner({ roomCode, name }: { roomCode: string; name: string }) {
   const isMyTurn = state.currentPlayerId === playerId;
 
   return (
-    <main className="h-dvh flex flex-col">
-      <header className="flex items-center justify-between px-4 py-3 border-b border-line/70">
+    <main className="h-dvh flex flex-col relative overflow-hidden">
+      <div className="aurora" />
+
+      <header className="relative z-10 flex items-center justify-between px-4 py-3 border-b border-line/60 glass-panel">
         <button onClick={copyCode} className="flex items-center gap-2 text-left">
           <span className="font-display font-bold tracking-[0.2em] text-lg">{roomCode}</span>
           <span className="text-[10px] text-white/35 uppercase">tap to copy</span>
@@ -127,29 +116,27 @@ function RoomInner({ roomCode, name }: { roomCode: string; name: string }) {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setFeedOpen((v) => !v)}
-            className="lg:hidden text-xs bg-panel border border-line rounded-full px-3 py-1.5"
+            className="btn-tactile lg:hidden text-xs glass-panel border border-line rounded-full px-3 py-1.5"
           >
             Activity
           </button>
-          <button onClick={toggleMute} className="text-xs bg-panel border border-line rounded-full px-3 py-1.5">
-            {muted ? "Unmute" : "Mute"}
-          </button>
-          <button onClick={leave} className="text-xs bg-panel border border-line rounded-full px-3 py-1.5 text-white/50">
+          <SettingsMenu />
+          <button onClick={leave} className="btn-tactile text-xs glass-panel border border-line rounded-full px-3 py-1.5 text-white/50">
             Leave
           </button>
         </div>
       </header>
 
       {error && (
-        <div className="mx-4 mt-2 rounded-lg bg-uno-red/15 border border-uno-red/30 text-uno-red text-xs px-3 py-2">
+        <div className="relative z-10 mx-4 mt-2 rounded-lg bg-uno-red/15 border border-uno-red/30 text-uno-red text-xs px-3 py-2">
           {error}
         </div>
       )}
 
-      <div className="flex-1 grid lg:grid-cols-[1fr_260px] min-h-0">
+      <div className="relative z-10 flex-1 grid lg:grid-cols-[1fr_260px] min-h-0">
         <div className="flex flex-col min-h-0">
           {state.phase === "lobby" && (
-            <LobbyView state={state} isHost={isHost} playerId={playerId} send={send} />
+            <LobbyView state={state} isHost={isHost} playerId={playerId} onChange={actions.updateSettings} onStart={actions.startGame} />
           )}
 
           {(state.phase === "playing" || state.phase === "roundEnd" || state.phase === "matchEnd") && (
@@ -159,54 +146,47 @@ function RoomInner({ roomCode, name }: { roomCode: string; name: string }) {
                 selfId={playerId}
                 currentPlayerId={state.currentPlayerId}
                 vulnerable={state.vulnerableToUnoCallout}
-                onCatch={(targetId) => send({ type: "catchUno", targetId })}
+                turnDeadline={state.turnDeadline}
+                onCatch={actions.catchUno}
               />
 
-              <div className="flex-1 flex items-center justify-center gap-6 md:gap-10">
-                <DirectionIndicator direction={state.direction} />
+              <div className="flex-1 flex items-center justify-center">
+                <div className="table-pit w-full max-w-md aspect-[5/3] flex items-center justify-center gap-6 md:gap-10 px-4">
+                  <DirectionIndicator direction={state.direction} />
 
-                <div className="flex flex-col items-center gap-1.5">
-                  {state.discardTop ? (
-                    <div key={throwSeq} className="animate-throw">
-                      <UnoCard card={state.discardTop} size="xl" />
-                    </div>
-                  ) : (
-                    <div className="w-24 h-36" />
-                  )}
-                  {state.currentColor && (
-                    <span
-                      className="text-[10px] uppercase tracking-widest font-semibold"
-                      style={{ color: colorHex(state.currentColor) }}
-                    >
-                      {state.currentColor}
-                    </span>
-                  )}
+                  <div className="flex flex-col items-center gap-1.5">
+                    {state.discardTop ? (
+                      <div
+                        key={throwSeq}
+                        className="animate-card-throw"
+                        style={{ ["--fy" as any]: "-30px", ["--fr" as any]: "-6deg" }}
+                      >
+                        <UnoCard card={state.discardTop} size="xl" />
+                      </div>
+                    ) : (
+                      <div className="w-24 h-36" />
+                    )}
+                    {state.currentColor && (
+                      <span className="text-[10px] uppercase tracking-widest font-semibold" style={{ color: colorHex(state.currentColor) }}>
+                        {state.currentColor}
+                      </span>
+                    )}
+                  </div>
+
+                  <DrawPile
+                    count={state.drawPileCount}
+                    canDraw={isMyTurn && state.phase === "playing" && !state.hasDrawnThisTurn}
+                    onDraw={actions.draw}
+                  />
                 </div>
-
-                <DrawPile
-                  count={state.drawPileCount}
-                  canDraw={isMyTurn && state.phase === "playing" && !hasDrawnThisTurn}
-                  onDraw={() => {
-                    playSound("draw");
-                    setHasDrawnThisTurn(true);
-                    send({ type: "drawCard" });
-                  }}
-                />
               </div>
 
-              <p className="text-center text-sm text-white/60 h-5">
-                {state.phase === "playing" &&
-                  (isMyTurn ? "Your turn" : `${state.players.find((p) => p.id === state.currentPlayerId)?.name}'s turn`)}
-              </p>
+              <TurnBanner state={state} isMyTurn={isMyTurn} />
             </div>
           )}
 
-          {state.phase === "roundEnd" && (
-            <RoundEndOverlay state={state} isHost={isHost} send={send} />
-          )}
-          {state.phase === "matchEnd" && (
-            <MatchEndOverlay state={state} isHost={isHost} send={send} />
-          )}
+          {state.phase === "roundEnd" && <RoundEndOverlay state={state} isHost={isHost} onNextRound={actions.nextRound} />}
+          {state.phase === "matchEnd" && <MatchEndOverlay state={state} isHost={isHost} onPlayAgain={actions.startGame} />}
 
           {state.phase === "playing" && (
             <Hand
@@ -214,28 +194,18 @@ function RoomInner({ roomCode, name }: { roomCode: string; name: string }) {
               isMyTurn={isMyTurn}
               topColor={state.currentColor}
               topCard={state.discardTop}
-              hasDrawn={hasDrawnThisTurn}
+              hasDrawn={state.hasDrawnThisTurn}
               saidUno={me?.saidUno ?? true}
-              onPlay={(cardId, chosenColor) => {
-                setHasDrawnThisTurn(false);
-                send({ type: "playCard", cardId, chosenColor });
-              }}
-              onDraw={() => {
-                playSound("draw");
-                setHasDrawnThisTurn(true);
-                send({ type: "drawCard" });
-              }}
-              onPass={() => send({ type: "passTurn" })}
-              onSayUno={() => {
-                playSound("uno");
-                send({ type: "sayUno" });
-              }}
+              onPlay={(card, chosenColor) => actions.playCard(card, chosenColor)}
+              onDraw={actions.draw}
+              onPass={actions.pass}
+              onSayUno={actions.sayUno}
             />
           )}
         </div>
 
         <aside
-          className={`border-l border-line/70 bg-panel/40 p-4 flex-col ${
+          className={`border-l border-line/60 glass-panel p-4 flex-col ${
             feedOpen ? "flex fixed inset-x-0 bottom-0 top-14 z-40 bg-ink" : "hidden"
           } lg:static lg:flex lg:z-auto`}
         >
@@ -247,19 +217,59 @@ function RoomInner({ roomCode, name }: { roomCode: string; name: string }) {
   );
 }
 
-function LobbyView({ state, isHost, playerId, send }: any) {
+function TurnBanner({ state, isMyTurn }: { state: PublicGameState; isMyTurn: boolean }) {
+  const label =
+    state.phase === "playing"
+      ? isMyTurn
+        ? "Your turn"
+        : `${state.players.find((p) => p.id === state.currentPlayerId)?.name ?? "..."}'s turn`
+      : "";
+
+  return (
+    <div className="flex flex-col items-center gap-1.5 h-9">
+      <p className="text-sm text-white/60">{label}</p>
+      {state.turnDeadline && (
+        <div className="w-40 h-1 rounded-full bg-white/10 overflow-hidden">
+          <div
+            key={state.turnDeadline}
+            className="h-full bg-uno-yellow/80 rounded-full"
+            style={{
+              animation: `turn-timer-bar ${Math.max(0, state.turnDeadline - Date.now()) / 1000}s linear forwards`,
+            }}
+          />
+        </div>
+      )}
+      <style>{`
+        @keyframes turn-timer-bar {
+          from { width: 100%; }
+          to { width: 0%; }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function LobbyView({
+  state,
+  isHost,
+  playerId,
+  onChange,
+  onStart,
+}: {
+  state: PublicGameState;
+  isHost: boolean;
+  playerId: string;
+  onChange: (patch: any) => void;
+  onStart: () => void;
+}) {
+  const connectedPlayers = state.players.filter((p) => p.connected);
   return (
     <div className="flex-1 overflow-y-auto px-4 py-5 space-y-5">
       <div>
-        <p className="text-xs uppercase tracking-wide text-white/40 mb-2">
-          Players ({state.players.filter((p: any) => p.connected).length})
-        </p>
+        <p className="text-xs uppercase tracking-wide text-white/40 mb-2">Players ({connectedPlayers.length})</p>
         <div className="space-y-1.5">
-          {state.players.map((p: any) => (
-            <div
-              key={p.id}
-              className="flex items-center justify-between rounded-lg border border-line bg-panel/60 px-3 py-2"
-            >
+          {state.players.map((p) => (
+            <div key={p.id} className="flex items-center justify-between rounded-xl glass-panel border border-line px-3 py-2.5">
               <span className="text-sm">
                 {p.name} {p.id === playerId && <span className="text-white/30">(you)</span>}
               </span>
@@ -269,19 +279,15 @@ function LobbyView({ state, isHost, playerId, send }: any) {
         </div>
       </div>
 
-      <HostSettingsPanel
-        settings={state.settings}
-        isHost={isHost}
-        onChange={(patch) => send({ type: "hostUpdateSettings", settings: patch })}
-      />
+      <HostSettingsPanel settings={state.settings} isHost={isHost} onChange={onChange} />
 
       {isHost ? (
         <button
-          onClick={() => send({ type: "startGame" })}
-          disabled={state.players.filter((p: any) => p.connected).length < 2}
-          className="w-full bg-uno-yellow text-ink font-display font-bold py-3.5 rounded-xl disabled:opacity-30"
+          onClick={onStart}
+          disabled={connectedPlayers.length < 2}
+          className="btn-tactile w-full bg-uno-yellow text-ink font-display font-bold py-3.5 rounded-xl disabled:opacity-30"
         >
-          {state.players.filter((p: any) => p.connected).length < 2 ? "Need 2+ players" : "Start game"}
+          {connectedPlayers.length < 2 ? "Need 2+ players" : "Start game"}
         </button>
       ) : (
         <p className="text-center text-sm text-white/40">Waiting for the host to start...</p>
@@ -290,18 +296,26 @@ function LobbyView({ state, isHost, playerId, send }: any) {
   );
 }
 
-function RoundEndOverlay({ state, isHost, send }: any) {
-  const winner = state.players.find((p: any) => p.id === state.lastRoundWinnerId);
+function RoundEndOverlay({
+  state,
+  isHost,
+  onNextRound,
+}: {
+  state: PublicGameState;
+  isHost: boolean;
+  onNextRound: () => void;
+}) {
+  const winner = state.players.find((p) => p.id === state.lastRoundWinnerId);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm px-6">
-      <div className="w-full max-w-sm rounded-2xl bg-panel border border-line p-6 text-center animate-popIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-md px-6">
+      <div className="w-full max-w-sm rounded-2xl glass-panel border border-line p-6 text-center animate-popIn">
         <p className="text-white/40 text-xs uppercase tracking-wide mb-2">Round over</p>
         <h2 className="font-display font-bold text-2xl mb-1">{winner?.name} scores!</h2>
         <p className="text-white/60 text-sm mb-5">+{state.lastRoundPoints} points</p>
         <div className="space-y-1 mb-6 text-sm">
           {[...state.players]
-            .sort((a: any, b: any) => b.score - a.score)
-            .map((p: any) => (
+            .sort((a, b) => b.score - a.score)
+            .map((p) => (
               <div key={p.id} className="flex justify-between text-white/70">
                 <span>{p.name}</span>
                 <span className="font-medium text-white/90">{p.score}</span>
@@ -309,10 +323,7 @@ function RoundEndOverlay({ state, isHost, send }: any) {
             ))}
         </div>
         {isHost ? (
-          <button
-            onClick={() => send({ type: "nextRound" })}
-            className="w-full bg-uno-yellow text-ink font-display font-bold py-3 rounded-xl"
-          >
+          <button onClick={onNextRound} className="btn-tactile w-full bg-uno-yellow text-ink font-display font-bold py-3 rounded-xl">
             Next round
           </button>
         ) : (
@@ -323,18 +334,23 @@ function RoundEndOverlay({ state, isHost, send }: any) {
   );
 }
 
-function MatchEndOverlay({ state, isHost, send }: any) {
-  const winner = state.players.find((p: any) => p.id === state.matchWinnerId);
+function MatchEndOverlay({
+  state,
+  isHost,
+  onPlayAgain,
+}: {
+  state: PublicGameState;
+  isHost: boolean;
+  onPlayAgain: () => void;
+}) {
+  const winner = state.players.find((p) => p.id === state.matchWinnerId);
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm px-6">
-      <div className="w-full max-w-sm rounded-2xl bg-panel border border-uno-yellow/40 p-6 text-center animate-popIn">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md px-6">
+      <div className="w-full max-w-sm rounded-2xl glass-panel border border-uno-yellow/40 p-6 text-center animate-popIn">
         <p className="text-uno-yellow text-xs uppercase tracking-wide mb-2">Match over</p>
         <h2 className="font-display font-bold text-3xl mb-6">{winner?.name} wins!</h2>
         {isHost ? (
-          <button
-            onClick={() => send({ type: "startGame" })}
-            className="w-full bg-uno-yellow text-ink font-display font-bold py-3 rounded-xl"
-          >
+          <button onClick={onPlayAgain} className="btn-tactile w-full bg-uno-yellow text-ink font-display font-bold py-3 rounded-xl">
             Play again
           </button>
         ) : (

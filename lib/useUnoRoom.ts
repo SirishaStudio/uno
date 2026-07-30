@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import PartySocket from "partysocket";
 import { nanoid } from "nanoid";
-import { Card, ClientMessage, PublicGameState, ServerMessage } from "./types";
+import { Card, CardColor, ClientMessage, HostSettings, PublicGameState, ServerMessage } from "./types";
 import { playSound } from "./sound";
+import { predictDrawCard, predictPlayCard } from "./optimistic";
 
 const PARTYKIT_HOST = process.env.NEXT_PUBLIC_PARTYKIT_HOST || "localhost:1999";
 
@@ -21,24 +22,24 @@ function getPersistentPlayerId(roomCode: string): string {
 
 export function useUnoRoom(roomCode: string, playerName: string) {
   const [connected, setConnected] = useState(false);
-  const [state, setState] = useState<PublicGameState | null>(null);
-  const [hand, setHand] = useState<Card[]>([]);
+  const [serverState, setServerState] = useState<PublicGameState | null>(null);
+  const [serverHand, setServerHand] = useState<Card[]>([]);
+  const [optimisticState, setOptimisticState] = useState<PublicGameState | null>(null);
+  const [optimisticHand, setOptimisticHand] = useState<Card[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [lastThrown, setLastThrown] = useState<{ playerId: string; card: Card } | null>(null);
+  const [lastThrown, setLastThrown] = useState<{ playerId: string; card: Card; seq: number } | null>(null);
+
   const socketRef = useRef<PartySocket | null>(null);
   const playerIdRef = useRef<string>("");
   const prevCurrentPlayer = useRef<string | null>(null);
+  const throwSeqRef = useRef(0);
 
   useEffect(() => {
     if (!roomCode) return;
     const pid = getPersistentPlayerId(roomCode);
     playerIdRef.current = pid;
 
-    const socket = new PartySocket({
-      host: PARTYKIT_HOST,
-      room: roomCode.toLowerCase(),
-      id: pid,
-    });
+    const socket = new PartySocket({ host: PARTYKIT_HOST, room: roomCode.toLowerCase(), id: pid });
     socketRef.current = socket;
 
     socket.addEventListener("open", () => {
@@ -57,23 +58,24 @@ export function useUnoRoom(roomCode: string, playerName: string) {
           playSound("turn");
         }
         prevCurrentPlayer.current = msg.state.currentPlayerId;
-        setState(msg.state);
+        setServerState(msg.state);
+        setOptimisticState(null); // server truth always wins
       } else if (msg.type === "hand") {
-        setHand(msg.cards);
+        setServerHand(msg.cards);
+        setOptimisticHand(null);
       } else if (msg.type === "cardThrown") {
-        setLastThrown({ playerId: msg.playerId, card: msg.card });
+        throwSeqRef.current += 1;
+        setLastThrown({ playerId: msg.playerId, card: msg.card, seq: throwSeqRef.current });
         playSound(msg.card.color === "wild" ? "wild" : "throw");
-      } else if (msg.type === "youDrew") {
-        playSound("draw");
       } else if (msg.type === "error") {
         setError(msg.message);
+        setOptimisticState(null);
+        setOptimisticHand(null);
         setTimeout(() => setError(null), 3500);
       }
     });
 
-    return () => {
-      socket.close();
-    };
+    return () => socket.close();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [roomCode, playerName]);
 
@@ -81,13 +83,48 @@ export function useUnoRoom(roomCode: string, playerName: string) {
     socketRef.current?.send(JSON.stringify(msg));
   }, []);
 
+  const playCard = useCallback(
+    (card: Card, chosenColor?: CardColor) => {
+      if (!serverState) return;
+      const base = optimisticState ?? serverState;
+      const baseHand = optimisticHand ?? serverHand;
+      const predicted = predictPlayCard(base, baseHand, playerIdRef.current, card, chosenColor);
+      setOptimisticState(predicted.state);
+      setOptimisticHand(predicted.hand);
+      send({ type: "playCard", cardId: card.id, chosenColor });
+    },
+    [serverState, serverHand, optimisticState, optimisticHand, send]
+  );
+
+  const draw = useCallback(() => {
+    if (!serverState) return;
+    const base = optimisticState ?? serverState;
+    setOptimisticState(predictDrawCard(base));
+    playSound("draw");
+    send({ type: "drawCard" });
+  }, [serverState, optimisticState, send]);
+
+  const pass = useCallback(() => send({ type: "passTurn" }), [send]);
+  const sayUno = useCallback(() => {
+    playSound("uno");
+    send({ type: "sayUno" });
+  }, [send]);
+  const catchUno = useCallback((targetId: string) => send({ type: "catchUno", targetId }), [send]);
+  const startGame = useCallback(() => send({ type: "startGame" }), [send]);
+  const nextRound = useCallback(() => send({ type: "nextRound" }), [send]);
+  const updateSettings = useCallback(
+    (settings: Partial<HostSettings>) => send({ type: "hostUpdateSettings", settings }),
+    [send]
+  );
+  const leave = useCallback(() => send({ type: "leave" }), [send]);
+
   return {
     connected,
-    state,
-    hand,
+    state: optimisticState ?? serverState,
+    hand: optimisticHand ?? serverHand,
     error,
     lastThrown,
     playerId: playerIdRef.current,
-    send,
+    actions: { playCard, draw, pass, sayUno, catchUno, startGame, nextRound, updateSettings, leave },
   };
 }

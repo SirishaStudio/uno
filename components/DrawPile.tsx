@@ -19,25 +19,21 @@ export function DrawPile({
         type="button"
         onClick={onDraw}
         disabled={!canDraw}
-        className={`pack-stack w-16 h-24 md:w-20 md:h-28 relative ${
-          canDraw ? "cursor-pointer active:scale-95" : "cursor-default opacity-70"
-        } transition-transform`}
+        className={`pack-stack card-scene w-16 h-24 md:w-20 md:h-28 relative btn-tactile rounded-xl ${
+          canDraw ? "cursor-pointer" : "cursor-default opacity-70"
+        }`}
         aria-label="Draw a card"
       >
         {Array.from({ length: layers }).map((_, i) => (
-          <div
-            key={i}
-            className="layer"
-            style={{
-              transform: `translate(${i * 2}px, ${-i * 2}px)`,
-              zIndex: i,
-            }}
-          >
+          <div key={i} className="layer" style={{ transform: `translate(${i * 2}px, ${-i * 2}px)`, zIndex: i }}>
             <CardBack size="md" />
           </div>
         ))}
         {canDraw && (
-          <div className="absolute -inset-1 rounded-xl animate-pulseRing pointer-events-none" style={{ zIndex: layers + 1 }} />
+          <div
+            className="absolute -inset-1 rounded-xl animate-pulseRing pointer-events-none"
+            style={{ zIndex: layers + 1 }}
+          />
         )}
       </button>
       <span className="text-[11px] uppercase tracking-wide text-white/40 font-medium">{count} left</span>
